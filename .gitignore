@@ -1,0 +1,6 @@
+*.pth
+*.pt
+data
+.vscode
+__pycache__
+
