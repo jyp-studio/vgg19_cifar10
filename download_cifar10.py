@@ -1,11 +1,12 @@
+import random
 import torch
 import torch.nn as nn
 import torchvision
-from torchvision import models
 import torchvision.transforms as transforms
+import torch.optim as optim
 import matplotlib.pyplot as plt
 import numpy as np
-from PIL import Image
+from torchsummary import summary
 
 # if gpu is avalible then use gpu
 device = "mps" if torch.backends.mps.is_available() else "cpu"
@@ -60,72 +61,40 @@ class Data:
 
         return npimg
 
-    def imshow_1(self, imgs, labels) -> None:
-        plt.figure()
-        for index, img in enumerate(imgs, start=1):
-            npimg = self.unnormalize(img)
-            plt.subplot(3, 3, index)
-            plt.title(f"{self.classes[labels[index - 1]]:5s}", fontsize=10)
-            plt.imshow(npimg)
-            plt.xticks([])
-            plt.yticks([])
-        plt.show()
-
     def argumentation(self, tensor):
         """
         Read torch tensor, do argumentation then return tensor
         """
-        # change the img from tensor to image
-        print("tenosr")
-        print(tensor)
-        trans2Img = transforms.ToPILImage()
-        img = trans2Img(tensor)
 
         # define preprocessing step
+        degree = random.choices([0, 10, 20, 30])[0]
+        shearing_degree = random.choices([0, 10, 15, 20], weights=[60, 20, 10, 10])[0]
+        print(shearing_degree)
         preprocess = transforms.Compose(
             [
-                transforms.Resize(32),
-                # transforms.RandomResizedCrop(224),
-                # transforms.RandomHorizontalFlip(p=0.5),
-                # transforms.RandomGrayscale(p=0.5),
-                transforms.ToTensor(),
-                transforms.Normalize(
-                    mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225]
+                transforms.Resize(224),
+                transforms.ColorJitter(brightness=0.1, contrast=0.1),
+                transforms.RandomHorizontalFlip(p=0.5),
+                torchvision.transforms.RandomAffine(
+                    degree,
+                    translate=None,
+                    scale=None,
+                    shear=((0, 0, 0, shearing_degree)),
                 ),
+                transforms.RandomGrayscale(p=0.3),
             ]
         )
         # processing
-        input_tensor = preprocess(img)
-        print("input_tensor")
-        print(input_tensor)
+        input_tensor = preprocess(tensor)
 
         # input_batch = input_tensor.unsqueeze(0)
         # print(input_batch)
         return input_tensor
 
-    def convert_cifar10(self, t, pil):
-        """Function to convert a cifar10 image tensor (already normalized)
-        onto a plotable image.
 
-        :param t: image tensor of size (3,32,23)
-        :type t: torch.Tensor
-        :param pil: output is of size (3,32,32) if True, else (32,32,3)
-        :type pil: bool
-        """
-        im = torch.Tensor.clone(t)
-        # approximate unnormalization
-        im[0] = im[0] * 0.229 + 0.485
-        im[1] = im[1] * 0.224 + 0.456
-        im[2] = im[2] * 0.225 + 0.406
-        if not pil:
-            im = im.numpy()
-            im = np.transpose(im, (1, 2, 0))
-        return im
-
-
-class VGG(nn.Module):
-    def __init__(self):
-        super(VGG, self).__init__()
+class VGG19(nn.Module):
+    def __init__(self, classes):
+        super(VGG19, self).__init__()
         self.features = self._make_layers(
             [
                 64,
@@ -151,13 +120,23 @@ class VGG(nn.Module):
                 "M",
             ]
         )
-        self.classifier = nn.Linear(512, 10)
+        self.classifier = nn.Sequential(
+            nn.Linear(512, 4096),
+            nn.ReLU(),
+            nn.Dropout(0.5),
+            nn.Linear(4096, 4096),
+            nn.ReLU(),
+            nn.Dropout(0.5),
+            nn.Linear(4096, classes),
+        )
 
     def forward(self, x):
-        out = self.features(x)
-        out = out.view(out.size(0), -1)
-        out = self.classifier(out)
-        return out
+        x = self.features(x)
+        # out = out.view(out.size(0), -1)
+        logits = self.classifier(x.view(-1, 512))
+        probas = nn.functional.softmax(logits, dim=1)
+
+        return logits, probas
 
     def _make_layers(self, cfg):
         layers = []
@@ -172,11 +151,8 @@ class VGG(nn.Module):
                     nn.ReLU(inplace=True),
                 ]
                 in_channels = x
-        layers += [nn.AvgPool2d(kernel_size=1, stride=1)]
+        layers += [nn.AdaptiveAvgPool2d(7)]
         return nn.Sequential(*layers)
-
-
-model_vgg19 = models.vgg19()
 
 
 if __name__ == "__main__":
@@ -192,35 +168,47 @@ if __name__ == "__main__":
         )
     )
     images, labels = next(dataiter)
-    print(images[0])
-    t = transforms.ToPILImage()
-    a = t(images[0])
-    a.show()
-    t = transforms.Compose(
-        [
-            transforms.ToTensor(),
-            transforms.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225]),
-        ]
-    )
-    b = t(a)
-    print(b)
 
     # show images
-    # data.imshow_1(images, labels)
+    # plt.figure()
+    # for index, img in enumerate(images, start=1):
+    #     npimg = data.unnormalize(img)
+    #     plt.subplot(3, 3, index)
+    #     plt.title(f"{data.classes[labels[index - 1]]:5s}", fontsize=10)
+    #     plt.imshow(npimg)
+    #     plt.xticks([])
+    #     plt.yticks([])
+    # plt.show()
 
     """
     Q5.2
     """
-    tensor = data.argumentation(images[0])
-    t = transforms.Resize(32)
-    tensor1 = t(tensor)
-    original_img = data.convert_cifar10(tensor1, pil=False)
-    plt.imshow(original_img)
-    print("origin")
-    print(original_img)
+    net = VGG19(10)
+    net.to(device=device)
+    # summary(net, (3, 32, 32))
+    """
+    Q5.3
+    """
+    plt.figure()
+    origin = data.unnormalize(images[0])
+    plt.subplot(2, 3, 2)
+    plt.title("origin")
+    plt.imshow(origin)
+    plt.xticks([])
+    plt.yticks([])
+    for i in range(4, 7):
+        tensor = data.argumentation(images[0])
+        trans = data.unnormalize(tensor)
+        plt.subplot(2, 3, i)
+        plt.title(f"trans{i-3}")
+        plt.imshow(trans)
+        plt.xticks([])
+        plt.yticks([])
     plt.show()
-    second = data.convert_cifar10(images[0], pil=False)
-    plt.imshow(second)
-    print("second")
-    print(second)
-    plt.show()
+
+    """
+    Q5.4
+    """
+    # define a Loss function and optimizer
+    criterion = nn.CrossEntropyLoss()
+    optimizer = optim.SGD(net.parameters(), lr=0.001, momentum=0.9)

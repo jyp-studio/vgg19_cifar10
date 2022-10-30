@@ -2,7 +2,8 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 
-from download_cifar10 import trainloader
+# from download_cifar10 import trainloader
+from torchsummary import summary
 
 
 class Net(nn.Module):
@@ -26,8 +27,9 @@ class Net(nn.Module):
 
 
 net = Net()
+summary(net, (3, 32, 32))
 
-
+"""
 import torch.optim as optim
 
 criterion = nn.CrossEntropyLoss()
@@ -61,3 +63,4 @@ print("Finished Training")
 
 PATH = "./cifar_net.pth"
 torch.save(net.state_dict(), PATH)
+"""
