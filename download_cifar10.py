@@ -18,7 +18,7 @@ class Data:
     def __init__(self) -> None:
         self.transform = transforms.Compose(
             [
-                transforms.Resize(224),
+                transforms.Resize((224, 224)),
                 transforms.ToTensor(),
                 transforms.Normalize((0.5, 0.5, 0.5), (0.5, 0.5, 0.5)),
             ]
@@ -325,6 +325,7 @@ if __name__ == "__main__":
     plt.plot(running_loss_history, label="training loss")
     plt.plot(val_running_loss_history, label="validation loss")
     plt.legend()
+    plt.title("loss")
     plt.savefig("loss.png")
     plt.show()
 
@@ -333,6 +334,7 @@ if __name__ == "__main__":
     plt.plot(running_corrects_history, label="training accuracy")
     plt.plot(val_running_corrects_history, label="validation accuracy")
     plt.legend()
+    plt.title("accuracy")
     plt.savefig("accuracy.png")
     plt.show()
 
