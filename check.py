@@ -1,4 +1,4 @@
-from download_cifar10 import Data, VGG19
+from data import Data, VGG19
 import torch
 import matplotlib.pyplot as plt
 from PIL import Image

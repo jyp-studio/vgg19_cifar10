@@ -4,7 +4,7 @@ from PyQt6.QtWidgets import QFileDialog
 from gui import Ui_MainWindow
 
 from PIL import Image
-from download_cifar10 import *
+from data import *
 import traceback, sys
 import cv2
 
