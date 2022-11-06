@@ -16,6 +16,7 @@ def train(model, device, data):
     val_running_corrects_history = []
 
     for e in range(epochs):  # training our model, put input according to every batch.
+        print(f"Epoch{e+1}")
 
         running_loss = 0.0
         running_corrects = 0.0
@@ -23,7 +24,7 @@ def train(model, device, data):
         val_running_corrects = 0.0
 
         model.train()
-        for inputs, labels in tqdm(data.trainloader):
+        for inputs, labels in tqdm(data.trainloader, desc=f"Training"):
             inputs = data.augmentation(inputs)
             inputs = inputs.to(device)
             labels = labels.to(device)
@@ -48,7 +49,7 @@ def train(model, device, data):
         # we do not need gradient for validation.
         model.eval()
         with torch.no_grad():
-            for val_inputs, val_labels in data.testloader:
+            for val_inputs, val_labels in tqdm(data.testloader, desc=f"Validating"):
                 val_inputs = val_inputs.to(device)
                 val_labels = val_labels.to(device)
                 val_outputs = model(val_inputs)
@@ -69,13 +70,14 @@ def train(model, device, data):
         val_epoch_acc = val_running_corrects.float() / len(data.testloader)
         val_running_loss_history.append(val_epoch_loss)
         val_running_corrects_history.append(val_epoch_acc.item())
-        print("epoch:", (e + 1))
-        print("training loss: {:.4f}, acc {:.4f} ".format(epoch_loss, epoch_acc.item()))
-        print(
-            "validation loss: {:.4f}, validation acc {:.4f} ".format(
-                val_epoch_loss, val_epoch_acc.item()
-            )
-        )
+        # print("training loss: {:.4f}, acc {:.4f} ".format(epoch_loss, epoch_acc.item()))
+        print(f"training   loss:{epoch_loss:.4f}, acc:{epoch_acc.item():.4f}")
+        print(f"validation loss:{val_epoch_loss:.4f}, acc:{val_epoch_acc.item():.4f}")
+        # print(
+        #     "validation loss: {:.4f}, validation acc {:.4f} ".format(
+        #         val_epoch_loss, val_epoch_acc.item()
+        #     )
+        # )
 
     PATH = "./cifar_net2.pth"
     torch.save(model.state_dict(), PATH)
