@@ -61,7 +61,7 @@ class Ui_MainWindow(object):
         self.btn5_3.setText(_translate("MainWindow", "3. Show Data Augmentation"))
         self.btn5_4.setText(_translate("MainWindow", "4. Show Accuracy and Loss"))
         self.btn5_5.setText(_translate("MainWindow", "5. Inference"))
-        self.labelImg.setText(_translate("MainWindow", "TextLabel"))
+        self.labelImg.setText(_translate("MainWindow", "Pic here"))
 
 
 if __name__ == "__main__":

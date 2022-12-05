@@ -1,12 +1,16 @@
-from PyQt6 import QtCore, QtGui, QtWidgets
+from PyQt6 import QtGui, QtWidgets
 from PyQt6.QtCore import QRunnable, QThreadPool, pyqtSlot, QObject, pyqtSignal
 from PyQt6.QtWidgets import QFileDialog
 from gui import Ui_MainWindow
 
 from PIL import Image
-from data import *
+import torch
+import torchvision.transforms as transforms
 import traceback, sys
 import cv2
+import matplotlib.pyplot as plt
+from data import Data
+from vgg19 import VGG19
 
 
 class WorkerSignals(QObject):
@@ -81,6 +85,10 @@ class Controller(QtWidgets.QMainWindow):
 
         self.device = "mps"
         self.data = Data()
+        self.net = VGG19(10)
+        self.model_path = "cifar_net.pth"
+        self.net.load_state_dict(torch.load(self.model_path))
+
         self.filename = ""
 
         # get some random training images
@@ -103,6 +111,7 @@ class Controller(QtWidgets.QMainWindow):
 
     def open_file(self):
         self.filename, _ = QFileDialog.getOpenFileName(self, "Open file", "./")
+        print(self.filename)
         self.display_img()
 
     def display_img(self):
@@ -124,16 +133,14 @@ class Controller(QtWidgets.QMainWindow):
         for index, img in enumerate(self.images, start=1):
             npimg = self.data.unnormalize(img)
             plt.subplot(3, 3, index)
-            plt.title(f"{self.data.classes[labels[index - 1]]:5s}", fontsize=10)
+            plt.title(f"{self.data.classes[self.labels[index - 1]]:5s}", fontsize=10)
             plt.imshow(npimg)
             plt.xticks([])
             plt.yticks([])
         plt.show()
 
     def show5_2(self):
-        self.net = VGG19(10)
-        summary(self.net, (3, 32, 32), device="cpu")
-        self.net.to(device=self.device)
+        self.net.summary()
 
     def show5_3(self):
         plt.figure()
@@ -154,7 +161,39 @@ class Controller(QtWidgets.QMainWindow):
         plt.show()
 
     def show5_4(self):
-        pass
+        plt.figure(figsize=(4, 8), dpi=110)
+        plt.subplot(2, 1, 1)
+        loss = cv2.imread("loss.png")
+        plt.imshow(loss)
+        plt.subplot(2, 1, 2)
+        accuracy = cv2.imread("accuracy.png")
+        plt.imshow(accuracy)
+        plt.show()
 
     def show5_5(self):
-        pass
+        if self.filename == "" or self.filename == None:
+            self.open_file()
+        img = Image.open(self.filename)
+        transform = transforms.Compose(
+            [
+                transforms.Resize((224, 224)),
+                transforms.ToTensor(),
+                transforms.Normalize((0.5, 0.5, 0.5), (0.5, 0.5, 0.5)),
+            ]
+        )
+        tensor = transform(img)
+        image = tensor.unsqueeze(0)
+        img_numpy = self.data.unnormalize(tensor)
+        image = image.to(self.device)
+        self.net.to("mps")
+        output = self.net(image)
+        probs = torch.nn.functional.softmax(output, dim=1)
+        conf, classes = torch.max(probs, 1)
+        plt.figure()
+        plt.title(
+            f"Confidence={round(conf.item(), 2)}\nPrediction Label: {self.data.classes[classes.item()]}"
+        )
+        plt.imshow(img_numpy)
+        plt.xticks([])
+        plt.yticks([])
+        plt.show()

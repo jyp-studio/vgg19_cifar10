@@ -1,4 +1,5 @@
 import torch.nn as nn
+from torchsummary import summary
 
 
 class VGG19(nn.Module):
@@ -30,16 +31,13 @@ class VGG19(nn.Module):
             ]
         )
         self.classifier = nn.Sequential(
-            nn.Linear(512 * 7 * 7, 4096),
+            nn.Linear(512 * 4 * 4, 4096),
             nn.ReLU(),
-            nn.Dropout(0.2),
-            nn.Linear(4096, 2048),
+            nn.Dropout(0.5),
+            nn.Linear(4096, 4096),
             nn.ReLU(),
-            nn.Dropout(0.2),
-            nn.Linear(2048, 1000),
-            nn.ReLU(),
-            nn.Dropout(0.2),
-            nn.Linear(1000, classes),
+            nn.Dropout(0.5),
+            nn.Linear(4096, classes),
         )
 
     def forward(self, x):
@@ -62,5 +60,8 @@ class VGG19(nn.Module):
                     nn.ReLU(inplace=True),
                 ]
                 in_channels = x
-        layers += [nn.AdaptiveAvgPool2d(7)]
+        layers += [nn.AdaptiveAvgPool2d(4)]
         return nn.Sequential(*layers)
+
+    def summary(self):
+        summary(self, (3, 32, 32), device="cpu")

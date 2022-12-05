@@ -5,35 +5,36 @@ import matplotlib.pyplot as plt
 from tqdm import tqdm
 
 
-def train(model, device, data):
+def train(model, device, data, epochs=30):
     criterion = nn.CrossEntropyLoss()
     optimizer = optim.SGD(model.parameters(), lr=0.001, momentum=0.9)
 
-    epochs = 50
     running_loss_history = []
     running_corrects_history = []
     val_running_loss_history = []
     val_running_corrects_history = []
 
     for e in range(epochs):  # training our model, put input according to every batch.
-        print(f"Epoch{e+1}")
+        print(f"Epoch: {e+1}")
 
+        running_total = 0
         running_loss = 0.0
         running_corrects = 0.0
+        val_total = 0
         val_running_loss = 0.0
         val_running_corrects = 0.0
 
         model.train()
         for inputs, labels in tqdm(data.trainloader, desc=f"Training"):
-            inputs = data.augmentation(inputs)
+            # inputs = data.augmentation(inputs)
             inputs = inputs.to(device)
             labels = labels.to(device)
+            # setting the initial gradient to 0
+            optimizer.zero_grad()
             # every batch of 100 images are put as an input.
             outputs = model(inputs)
             # Calc loss after each batch i/p by comparing it to actual labels.
             loss = criterion(outputs, labels)
-            # setting the initial gradient to 0
-            optimizer.zero_grad()
             # backpropagating the loss
             loss.backward()
             # updating the weights and bias values for every single step.
@@ -42,8 +43,10 @@ def train(model, device, data):
             # taking the highest value of prediction.
             _, preds = torch.max(outputs, 1)
             running_loss += loss.item()
+
             # calculating te accuracy by taking the sum of all the correct predictions in a batch.
-            running_corrects += torch.sum(preds == labels.data)
+            running_total += labels.size(0)
+            running_corrects += (preds == labels).sum().item()
 
         # else:
         # we do not need gradient for validation.
@@ -57,29 +60,29 @@ def train(model, device, data):
 
                 _, val_preds = torch.max(val_outputs, 1)
                 val_running_loss += val_loss.item()
-                val_running_corrects += torch.sum(val_preds == val_labels.data)
+                val_total += labels.size(0)
+                val_running_corrects += (val_preds == val_labels).sum().item()
 
-        epoch_loss = running_loss / len(data.trainloader)  # loss per epoch
-        epoch_acc = running_corrects.float() / len(
-            data.trainloader
-        )  # accuracy per epoch
-        running_loss_history.append(epoch_loss)  # appending for displaying
+        # loss per epoch
+        epoch_loss = running_loss / running_total
+        # accuracy per epoch
+        epoch_acc = running_corrects / running_total
+        # appending for displaying
+        running_loss_history.append(epoch_loss)
         running_corrects_history.append(epoch_acc.item())
 
-        val_epoch_loss = val_running_loss / len(data.testloader)
-        val_epoch_acc = val_running_corrects.float() / len(data.testloader)
+        val_epoch_loss = val_running_loss / val_total
+        val_epoch_acc = val_running_corrects / val_total
         val_running_loss_history.append(val_epoch_loss)
         val_running_corrects_history.append(val_epoch_acc.item())
-        # print("training loss: {:.4f}, acc {:.4f} ".format(epoch_loss, epoch_acc.item()))
-        print(f"training   loss:{epoch_loss:.4f}, acc:{epoch_acc.item():.4f}")
-        print(f"validation loss:{val_epoch_loss:.4f}, acc:{val_epoch_acc.item():.4f}")
-        # print(
-        #     "validation loss: {:.4f}, validation acc {:.4f} ".format(
-        #         val_epoch_loss, val_epoch_acc.item()
-        #     )
-        # )
 
-    PATH = "./cifar_net2.pth"
+        print(len(running_total), len(data.trainloader))
+        print(len(val_total), len(data.testloader))
+        print(f"training   loss: {epoch_loss:.4f}, acc: {epoch_acc.item():.4f}")
+        print(f"validation loss: {val_epoch_loss:.4f}, acc: {val_epoch_acc.item():.4f}")
+        print()
+
+    PATH = "./igame_net.pth"
     torch.save(model.state_dict(), PATH)
 
     # loss
